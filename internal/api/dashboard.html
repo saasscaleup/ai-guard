@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIGuard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #111111;
+      --surface2:  #181818;
+      --border:    #222222;
+      --text:      #f0f0f0;
+      --muted:     #666666;
+      --red:       #ef4444;
+      --red-dim:   #7f1d1d;
+      --yellow:    #f59e0b;
+      --green:     #22c55e;
+      --blue:      #3b82f6;
+      --purple:    #a78bfa;
+      --sidebar-w: 220px;
+      --header-h:  58px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 200;
+      gap: 12px;
+    }
+
+    .header-left  { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 16px; font-weight: 700; letter-spacing: -0.4px; white-space: nowrap;
+    }
+    .logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; box-shadow: 0 2px 8px rgba(239,68,68,0.35); flex-shrink: 0;
+    }
+
+    .live-badge {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--muted); white-space: nowrap;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); animation: pulse-dot 2s ease-in-out infinite;
+      box-shadow: 0 0 6px var(--green); flex-shrink: 0;
+    }
+    .live-dot.offline { background: var(--muted); box-shadow: none; animation: none; }
+
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* Mode toggle button */
+    .mode-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .mode-btn:hover { color: var(--text); border-color: #333; background: #1c1c1c; }
+    .mode-btn .mode-icon { font-size: 13px; }
+
+    /* Hamburger (mobile only) */
+    .hamburger {
+      display: none; flex-direction: column; justify-content: center;
+      align-items: center; gap: 5px; width: 36px; height: 36px;
+      border: none; background: none; cursor: pointer; border-radius: 8px;
+      padding: 6px; flex-shrink: 0; transition: background 0.15s;
+    }
+    .hamburger:hover { background: var(--surface2); }
+    .hamburger span {
+      display: block; width: 20px; height: 2px; background: var(--text);
+      border-radius: 2px; transition: transform 0.2s, opacity 0.2s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* ── Layout shell ────────────────────────────────────────────────────────── */
+    .shell { display: flex; padding-top: var(--header-h); min-height: 100vh; }
+
+    /* ── Sidebar backdrop (mobile) ───────────────────────────────────────────── */
+    .sidebar-backdrop {
+      display: none; position: fixed;
+      inset: var(--header-h) 0 0 0;
+      background: rgba(0,0,0,0.6); z-index: 90; backdrop-filter: blur(2px);
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+    .sidebar {
+      position: fixed; top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface); border-right: 1px solid var(--border);
+      overflow-y: auto; padding: 20px 12px;
+      display: flex; flex-direction: column; gap: 2px;
+      z-index: 100; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .nav-section-label {
+      font-size: 10px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.7px; padding: 8px 10px 4px; margin-top: 4px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+      color: var(--muted); transition: background 0.15s, color 0.15s;
+      text-decoration: none; border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: rgba(239,68,68,0.1); color: var(--text); font-weight: 600; }
+    .nav-item.active .nav-icon { opacity: 1; }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; opacity: 0.6; }
+    .nav-badge {
+      margin-left: auto; font-size: 10px; font-weight: 700; padding: 2px 6px;
+      border-radius: 10px; background: rgba(239,68,68,0.15); color: var(--red);
+      min-width: 18px; text-align: center;
+    }
+    .nav-badge.hidden { display: none; }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 10px 4px; }
+    .nav-sub { padding-left: 8px; }
+    .nav-sub .nav-item { font-size: 12px; padding: 7px 12px 7px 20px; color: var(--muted); }
+
+    /* ── Main content ────────────────────────────────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w); flex: 1;
+      padding: 28px 32px 80px;
+      max-width: calc(100% - var(--sidebar-w));
+      min-width: 0;
+    }
+
+    .section-anchor { scroll-margin-top: calc(var(--header-h) + 20px); }
+
+    /* ── Stats row ───────────────────────────────────────────────────────────── */
+    .stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 14px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 22px; transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: #333; }
+    .stat-label {
+      font-size: 11px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.6px; font-weight: 600; margin-bottom: 8px;
+    }
+    .stat-value { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+    .stat-value.c-red    { color: var(--red); }
+    .stat-value.c-yellow { color: var(--yellow); }
+    .stat-value.c-green  { color: var(--green); }
+    .stat-value.c-muted  { color: var(--muted); }
+
+    /* ── Termination controls ───────────────────────────────────────────────────────── */
+    .terminate-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px;
+    }
+    .terminate-all-btn {
+      width: 100%; padding: 15px;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      border: none; border-radius: 10px; color: white;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      letter-spacing: -0.2px; margin-bottom: 12px;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 4px 14px rgba(239,68,68,0.25);
+    }
+    .terminate-all-btn:hover    { opacity: 0.92; box-shadow: 0 6px 20px rgba(239,68,68,0.35); }
+    .terminate-all-btn:active   { transform: scale(0.99); }
+    .terminate-all-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+    /* ── Card ────────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; margin-bottom: 24px; overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .card-header-title { font-size: 13px; font-weight: 700; letter-spacing: -0.2px; }
+    .card-header-sub   { font-size: 12px; color: var(--muted); }
+
+    .empty-state { padding: 44px 20px; text-align: center; color: var(--muted); }
+    .empty-icon  { font-size: 34px; margin-bottom: 10px; }
+    .empty-text  { font-size: 13px; }
+
+    /* ── Table (advanced mode) ───────────────────────────────────────────────── */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; min-width: 620px; }
+    thead th {
+      padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    tbody td {
+      padding: 13px 20px; border-bottom: 1px solid #181818;
+      font-size: 13px; vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #141414; }
+
+    .proc-name   { font-weight: 600; font-family: 'SF Mono','Menlo','Consolas',monospace; font-size: 12px; }
+    .proc-tool   { color: var(--muted); font-size: 12px; }
+    .proc-pid    { color: var(--muted); font-family: monospace; font-size: 12px; }
+    .proc-metric { font-family: 'SF Mono','Menlo','Consolas',monospace; font-size: 12px; font-weight: 600; }
+    .c-red    { color: var(--red); }
+    .c-yellow { color: var(--yellow); }
+    .c-muted  { color: var(--muted); }
+
+    /* ── Badges ──────────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 5px; font-size: 11px;
+      font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+    }
+    .badge-terminate    { background: rgba(239,68,68,0.12);   color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge-monitor { background: rgba(245,158,11,0.12);  color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+    .badge-agent   { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+    .badge-infra   { background: rgba(59,130,246,0.12);  color: var(--blue);   border: 1px solid rgba(59,130,246,0.25); }
+    .badge-desktop { background: rgba(34,197,94,0.12);   color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
+    .badge-editor  { background: rgba(245,158,11,0.12);  color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+
+    .terminate-row-btn {
+      padding: 5px 11px; background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25); border-radius: 6px;
+      color: var(--red); font-size: 11px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s; white-space: nowrap;
+    }
+    .terminate-row-btn:hover { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.5); }
+
+    /* ── Tool config ─────────────────────────────────────────────────────────── */
+    .tool-row {
+      display: flex; align-items: center; padding: 13px 20px;
+      border-bottom: 1px solid #181818; gap: 14px; transition: background 0.1s;
+    }
+    .tool-row:last-child { border-bottom: none; }
+    .tool-row:hover      { background: #141414; }
+    .tool-info { flex: 1; min-width: 0; }
+    .tool-name { font-weight: 600; font-size: 13px; }
+    .tool-note { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .toggle { position: relative; width: 38px; height: 22px; flex-shrink: 0; cursor: pointer; }
+    .toggle input { display: none; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 11px;
+      background: #2a2a2a; border: 1px solid #333; transition: background 0.2s, border-color 0.2s;
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--red); border-color: var(--red); }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+      border-radius: 50%; background: #666; transition: transform 0.2s, background 0.2s;
+      pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(16px); background: white; }
+    .toggle-label { font-size: 12px; font-weight: 600; color: var(--muted); width: 42px; }
+    .toggle input:checked ~ .toggle-label { color: var(--red); }
+    .protected-tag {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px;
+      color: var(--muted); background: #1a1a1a; border: 1px solid #2a2a2a;
+      border-radius: 5px; padding: 3px 8px; flex-shrink: 0;
+    }
+
+    /* ── Alerts ──────────────────────────────────────────────────────────────── */
+    .alert-row {
+      display: flex; gap: 14px; padding: 14px 20px;
+      border-bottom: 1px solid #181818; align-items: flex-start; transition: background 0.1s;
+    }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-row:hover { background: #141414; }
+    .sev-badge {
+      font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
+      padding: 3px 7px; border-radius: 5px; flex-shrink: 0; margin-top: 1px; white-space: nowrap;
+    }
+    .sev-critical { background: rgba(239,68,68,0.12);   color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .sev-warn     { background: rgba(245,158,11,0.12);  color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+    .sev-info     { background: rgba(59,130,246,0.12);  color: var(--blue);   border: 1px solid rgba(59,130,246,0.25); }
+    .alert-content { flex: 1; min-width: 0; }
+    .alert-message { font-size: 13px; line-height: 1.5; }
+    .alert-meta    { font-size: 11px; color: var(--muted); margin-top: 4px; word-break: break-all; }
+    .clear-btn {
+      padding: 6px 13px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 7px; color: var(--muted); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap;
+    }
+    .clear-btn:hover { color: var(--text); border-color: #3a3a3a; }
+
+    /* ── Flash on terminate ───────────────────────────────────────────────────── */
+    @keyframes row-flash { 0% { background: rgba(239,68,68,0.15); } 100% { background: transparent; } }
+    .flashing td { animation: row-flash 0.7s ease-out; }
+
+    /* ── Confirmation modal ──────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500; backdrop-filter: blur(4px); padding: 16px;
+    }
+    .modal {
+      background: #1a1a1a; border: 1px solid #333; border-radius: 14px;
+      padding: 28px; width: 100%; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal-icon  { font-size: 32px; text-align: center; margin-bottom: 12px; }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .modal-body  { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    .modal-cancel-btn {
+      padding: 9px 18px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: color 0.15s, border-color 0.15s;
+    }
+    .modal-cancel-btn:hover { color: var(--text); border-color: #444; }
+    .modal-confirm-btn {
+      padding: 9px 18px; background: linear-gradient(135deg, #ef4444, #dc2626);
+      border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 2px 10px rgba(239,68,68,0.3); transition: opacity 0.15s;
+    }
+    .modal-confirm-btn:hover { opacity: 0.9; }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       SIMPLE MODE — default for new users
+       body.simple hides the sidebar and shows the hero layout instead
+    ═══════════════════════════════════════════════════════════════════════════ */
+
+    /* In simple mode the sidebar is hidden */
+    body.simple .sidebar         { display: none; }
+    body.simple .sidebar-backdrop { display: none !important; }
+
+    /* Main area fills the full width and is centred with a max-width */
+    body.simple .main {
+      margin-left: 0;
+      max-width: 680px;
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 28px 24px 80px;
+    }
+
+    /* Hide things that don't belong in simple mode */
+    body.simple .stats,
+    body.simple #sec-overview,
+    body.simple #sec-tools,
+    body.simple #sec-alerts,
+    /* The advanced process table card is hidden; simple card is shown */
+    body.simple  #sec-processes { display: none; }
+    body.advanced #simple-procs  { display: none; }
+    body.advanced #simple-hero   { display: none; }
+
+    /* ── Hero status card (simple mode) ──────────────────────────────────────── */
+    #simple-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px 28px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .hero-shield {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+      filter: drop-shadow(0 0 16px rgba(239,68,68,0.3));
+    }
+    .hero-shield.safe { filter: drop-shadow(0 0 16px rgba(34,197,94,0.3)); }
+
+    .hero-title {
+      font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px;
+    }
+    .hero-sub {
+      font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.5;
+    }
+    .hero-sub .c-red    { color: var(--red); font-weight: 700; }
+    .hero-sub .c-green  { color: var(--green); font-weight: 700; }
+    .hero-sub .c-yellow { color: var(--yellow); font-weight: 700; }
+
+    /* ── Simple process list ──────────────────────────────────────────────────── */
+    #simple-procs { margin-bottom: 24px; }
+
+    .simple-proc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.15s;
+    }
+    .simple-proc-card:hover { border-color: #333; }
+    .simple-proc-card.terminable { border-left: 3px solid var(--red); }
+    .simple-proc-card.monitor  { border-left: 3px solid var(--muted); }
+
+    .spc-icon { font-size: 22px; flex-shrink: 0; }
+    .spc-info { flex: 1; min-width: 0; }
+    .spc-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spc-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .spc-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    /* ── Simple alert banner ─────────────────────────────────────────────────── */
+    #simple-alert-banner {
+      margin-top: 16px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: left;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    #simple-alert-banner.critical {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: var(--red);
+    }
+    #simple-alert-banner.warn {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.25);
+      color: var(--yellow);
+    }
+    .sab-icon  { flex-shrink: 0; font-size: 14px; }
+    .sab-text  { flex: 1; min-width: 0; }
+    .sab-msg   { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sab-meta  { color: var(--muted); margin-top: 2px; font-size: 11px; }
+    .sab-link  {
+      flex-shrink: 0; font-size: 11px; font-weight: 600;
+      color: var(--muted); cursor: pointer; white-space: nowrap;
+      background: none; border: none; padding: 0; text-decoration: underline;
+    }
+    .sab-link:hover { color: var(--text); }
+
+    /* ── Advanced mode hides the hamburger when sidebar shows ────────────────── */
+    body.advanced .hamburger { display: none; }
+
+    /* ── Offline banner ──────────────────────────────────────────────────────── */
+    #offline-banner {
+      display: none; position: fixed;
+      top: var(--header-h); left: 0; right: 0; z-index: 150;
+      background: rgba(239,68,68,0.10); border-bottom: 1px solid rgba(239,68,68,0.28);
+      padding: 9px 24px; align-items: center; gap: 10px;
+      font-size: 13px; color: var(--red);
+    }
+    #offline-banner code {
+      background: rgba(239,68,68,0.12); padding: 1px 7px;
+      border-radius: 4px; font-size: 12px; font-family: 'SF Mono','Menlo',monospace;
+    }
+    body.offline .shell { padding-top: 40px; }
+
+    /* ── Terminate All success state ───────────────────────────────────────────────── */
+    .terminate-all-btn.success {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      box-shadow: 0 4px 14px rgba(34,197,94,0.25);
+    }
+
+    /* ── Tool filter tabs ────────────────────────────────────────────────────── */
+    .tool-filter-bar {
+      display: flex; gap: 4px; padding: 12px 20px 0;
+      overflow-x: auto; scrollbar-width: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .tool-filter-bar::-webkit-scrollbar { display: none; }
+    .filter-tab {
+      padding: 6px 14px; border-radius: 6px 6px 0 0;
+      font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      border: 1px solid transparent; border-bottom: none;
+      color: var(--muted); background: none;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .filter-tab:hover { color: var(--text); }
+    .filter-tab.active {
+      color: var(--text); background: var(--surface2);
+      border-color: var(--border);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .hamburger { display: flex; }
+      body.advanced .hamburger { display: flex; }
+      .header { padding: 0 16px; }
+      #last-updated { display: none; }
+
+      .sidebar {
+        transform: translateX(-100%);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+        width: min(var(--sidebar-w), 80vw);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-backdrop.open { display: block; }
+
+      body.simple .main,
+      body.advanced .main {
+        margin-left: 0; max-width: 100%; padding: 20px 16px 80px;
+      }
+      body.advanced .main { max-width: 100%; }
+
+      .stats { grid-template-columns: 1fr; gap: 10px; }
+      .stat-value { font-size: 26px; }
+      .stat-card { padding: 14px 18px; }
+      .terminate-all-btn { font-size: 14px; padding: 13px; }
+      .terminate-section { padding: 16px; }
+      .card-header { padding: 14px 16px; }
+      .modal { padding: 22px 18px; border-radius: 12px; }
+      .modal-actions { flex-direction: column-reverse; }
+      .modal-cancel-btn, .modal-confirm-btn { width: 100%; text-align: center; }
+      .toggle-label { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .stat-card { padding: 12px 10px; }
+      .stat-label { font-size: 9px; }
+      .stat-value { font-size: 22px; letter-spacing: -0.5px; }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+      body.advanced .main { padding: 20px 20px 60px; }
+      .stats { gap: 10px; }
+      .stat-card { padding: 14px 16px; }
+      .stat-value { font-size: 26px; }
+    }
+  </style>
+</head>
+<body class="simple">
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu" onclick="toggleSidebar()">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="logo">
+      <div class="logo-icon">🛡</div>
+      AIGuard
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot" id="live-dot"></div>
+      <span id="last-updated">connecting…</span>
+    </div>
+    <button class="mode-btn" id="mode-btn" onclick="toggleMode()" title="Switch between Simple overview and Advanced process table + configuration">
+      <span class="mode-icon" id="mode-icon">⚙️</span>
+      <span id="mode-label">Advanced View</span>
+    </button>
+  </div>
+</div>
+
+<!-- Offline banner -->
+<div id="offline-banner">
+  <span style="font-size:16px;line-height:1">⚠️</span>
+  <span>Daemon is offline — start it with <code>aiguard daemon</code></span>
+</div>
+
+<div class="shell">
+
+  <!-- Sidebar backdrop -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar (advanced mode) -->
+  <nav class="sidebar" id="sidebar">
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item active" href="#sec-overview" onclick="navClick(this)">
+      <span class="nav-icon">📊</span> Dashboard
+    </a>
+    <div class="sidebar-divider"></div>
+    <div class="nav-section-label">Monitor</div>
+    <a class="nav-item" href="#sec-processes" onclick="navClick(this)">
+      <span class="nav-icon">🔍</span> Active Processes
+      <span class="nav-badge hidden" id="nav-badge-procs">0</span>
+    </a>
+    <a class="nav-item" href="#sec-alerts" onclick="navClick(this)">
+      <span class="nav-icon">🔔</span> Alert Log
+      <span class="nav-badge hidden" id="nav-badge-alerts">0</span>
+    </a>
+    <div class="sidebar-divider"></div>
+    <div class="nav-section-label">Configure</div>
+    <a class="nav-item" href="#sec-tools" onclick="navClick(this)">
+      <span class="nav-icon">⚙️</span> Tool Configuration
+    </a>
+    <div class="nav-sub">
+      <a class="nav-item" href="#sec-tools" onclick="navClick(this)"><span class="nav-icon">🛠️</span> Tools</a>
+    </div>
+  </nav>
+
+  <!-- Confirmation modal -->
+  <div class="modal-overlay" id="confirm-modal" style="display:none" onclick="confirmCancel(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-icon" id="confirm-icon">⛔</div>
+      <div class="modal-title" id="confirm-title">Confirm Terminate</div>
+      <div class="modal-body" id="confirm-body"></div>
+      <div class="modal-actions">
+        <button class="modal-cancel-btn" onclick="confirmCancel()">Cancel</button>
+        <button class="modal-confirm-btn" onclick="confirmOk()">Terminate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- ══ SIMPLE MODE CONTENT ═══════════════════════════════════════════════ -->
+
+    <!-- Hero status (simple only) -->
+    <div id="simple-hero">
+      <span class="hero-shield" id="hero-shield">🛡</span>
+      <div class="hero-title" id="hero-title">Checking…</div>
+      <div class="hero-sub"   id="hero-sub"></div>
+      <!-- Terminate All (inside hero) -->
+      <button class="terminate-all-btn" id="terminate-all-btn-simple" onclick="terminateAll()">
+        ⛔&nbsp;&nbsp;Terminate All AI Processes
+      </button>
+      <!-- Latest alert banner (simple mode) -->
+      <div id="simple-alert-banner" style="display:none"></div>
+    </div>
+
+    <!-- Simple process list (simple only) -->
+    <div id="simple-procs"></div>
+
+    <!-- ══ ADVANCED MODE CONTENT ══════════════════════════════════════════════ -->
+
+    <!-- Stats -->
+    <div id="sec-overview" class="section-anchor">
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Processes Detected</div>
+          <div class="stat-value c-muted" id="stat-detected">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Terminable</div>
+          <div class="stat-value c-muted" id="stat-terminable">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Alerts</div>
+          <div class="stat-value c-muted" id="stat-alerts">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terminate All (advanced) -->
+    <button class="terminate-all-btn" id="terminate-all-btn" onclick="terminateAll()">
+      ⛔&nbsp;&nbsp;Terminate All AI Processes
+    </button>
+
+    <!-- Active Processes (advanced) -->
+    <div id="sec-processes" class="section-anchor card">
+      <div class="card-header">
+        <span class="card-header-title">Active AI Processes</span>
+        <span class="card-header-sub" id="proc-count"></span>
+      </div>
+      <div id="process-body"></div>
+    </div>
+
+    <!-- Tool Config (advanced) -->
+    <div id="sec-tools" class="section-anchor card">
+      <div class="card-header">
+        <span class="card-header-title">🛠️&nbsp; AI Tools</span>
+        <span class="card-header-sub">Toggle termination per tool</span>
+      </div>
+      <div class="tool-filter-bar">
+        <button class="filter-tab active" onclick="setToolFilter('all', this)">All</button>
+        <button class="filter-tab" onclick="setToolFilter('agent', this)">Agents</button>
+        <button class="filter-tab" onclick="setToolFilter('infra', this)">Infra</button>
+        <button class="filter-tab" onclick="setToolFilter('desktop', this)">Desktop</button>
+        <button class="filter-tab" onclick="setToolFilter('editor', this)">Editor</button>
+      </div>
+      <div id="tools-list"></div>
+    </div>
+
+    <!-- Alerts (advanced) -->
+    <div id="sec-alerts" class="section-anchor card">
+      <div class="card-header">
+        <span class="card-header-title">Alert Log</span>
+        <button class="clear-btn" onclick="clearAlerts()">Clear All</button>
+      </div>
+      <div id="alerts-body"></div>
+    </div>
+
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+const BASE = ''
+
+
+let processes    = []
+let toolsCache   = []
+let pendingToggles = {}
+let activeToolFilter = 'all'
+
+function setToolFilter(cat, btn) {
+  activeToolFilter = cat
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'))
+  btn.classList.add('active')
+  renderAllToolCategories(toolsCache)
+}
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+
+function getMode() {
+  return localStorage.getItem('aiguard-mode') || 'simple'
+}
+
+function applyMode(mode) {
+  document.body.classList.toggle('simple',  mode === 'simple')
+  document.body.classList.toggle('advanced', mode === 'advanced')
+  document.getElementById('mode-icon').textContent  = mode === 'simple' ? '⚙️' : '🛡'
+  document.getElementById('mode-label').textContent = mode === 'simple' ? 'Advanced View' : 'Simple View'
+  if (mode === 'advanced') closeSidebar()
+}
+
+function toggleMode() {
+  const next = getMode() === 'simple' ? 'advanced' : 'simple'
+  localStorage.setItem('aiguard-mode', next)
+  applyMode(next)
+  // Re-render so the right view populates
+  renderProcesses(processes)
+  renderStats(processes, cachedAlerts)
+}
+
+function switchMode(mode) {
+  localStorage.setItem('aiguard-mode', mode)
+  applyMode(mode)
+  renderProcesses(processes)
+  renderStats(processes, cachedAlerts)
+}
+
+// Boot: apply saved mode
+applyMode(getMode())
+
+let cachedAlerts = []
+
+// ── Mobile sidebar ─────────────────────────────────────────────────────────
+
+function toggleSidebar() {
+  const sidebar   = document.getElementById('sidebar')
+  const backdrop  = document.getElementById('sidebar-backdrop')
+  const hamburger = document.getElementById('hamburger')
+  const open = sidebar.classList.toggle('open')
+  backdrop.classList.toggle('open', open)
+  hamburger.classList.toggle('open', open)
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open')
+  document.getElementById('sidebar-backdrop').classList.remove('open')
+  document.getElementById('hamburger').classList.remove('open')
+}
+
+function navClick(el) {
+  setActive(el)
+  if (window.innerWidth <= 768) closeSidebar()
+}
+
+// ── Sidebar active state ───────────────────────────────────────────────────
+
+function setActive(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  el.classList.add('active')
+}
+
+function updateActiveNav() {
+  const sections = ['sec-overview','sec-processes',
+    'sec-tools','sec-alerts']
+  const offset = 80
+  let current = sections[0]
+  for (const id of sections) {
+    const el = document.getElementById(id)
+    if (el && el.getBoundingClientRect().top <= offset) current = id
+  }
+  const map = {
+    'sec-overview':  '[href="#sec-overview"]',
+    'sec-processes': '[href="#sec-processes"]',  'sec-tools':  '[href="#sec-tools"]',
+    'sec-alerts':    '[href="#sec-alerts"]',
+  }
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  const active = document.querySelector('.nav-item' + (map[current] || ''))
+  if (active) active.classList.add('active')
+}
+
+window.addEventListener('scroll', updateActiveNav, { passive: true })
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeSidebar()
+    document.getElementById('confirm-modal').style.display = 'none'
+    confirmCallback = null
+  }
+})
+
+// ── Fetch & render loop ────────────────────────────────────────────────────
+
+async function fetchAll() {
+  try {
+    const [sRes, aRes, tRes] = await Promise.allSettled([
+      fetch(BASE + '/status').then(r => r.json()),
+      fetch(BASE + '/alerts').then(r => r.json()),
+      fetch(BASE + '/tools').then(r => r.json()),
+    ])
+
+    if (sRes.status !== 'fulfilled') throw new Error('status failed')
+
+    processes    = (sRes.value.ai_processes) || []
+    cachedAlerts = (aRes.status === 'fulfilled' ? aRes.value : null) || []
+    toolsCache   = (tRes.status === 'fulfilled' ? tRes.value : null) || []
+
+    for (const t of toolsCache) {
+      if (t.name in pendingToggles) t.kill = pendingToggles[t.name]
+    }
+
+    setOnline(true)
+    renderStats(processes, cachedAlerts)
+    renderProcesses(processes)
+    renderAllToolCategories(toolsCache)
+    renderAlerts(cachedAlerts)
+    document.getElementById('last-updated').textContent =
+      'updated ' + new Date().toLocaleTimeString()
+  } catch {
+    setOnline(false)
+    document.getElementById('last-updated').textContent = '⚠️ daemon offline'
+  }
+}
+
+function setOnline(online) {
+  document.getElementById('live-dot').className = 'live-dot' + (online ? '' : ' offline')
+  document.getElementById('offline-banner').style.display = online ? 'none' : 'flex'
+  document.body.classList.toggle('offline', !online)
+}
+
+// ── Render: stats ──────────────────────────────────────────────────────────
+
+function renderStats(procs, alerts) {
+  const killable = procs.filter(p => p.will_kill).length
+  const monitored = procs.length - killable
+
+  // Advanced stats cards
+  const dEl = document.getElementById('stat-detected')
+  dEl.textContent = procs.length
+  dEl.className   = 'stat-value ' + (procs.length > 0 ? 'c-yellow' : 'c-green')
+
+  const kEl = document.getElementById('stat-terminable')
+  kEl.textContent = killable
+  kEl.className   = 'stat-value ' + (killable > 0 ? 'c-red' : 'c-green')
+
+  const aEl = document.getElementById('stat-alerts')
+  aEl.textContent = alerts.length
+  aEl.className   = 'stat-value ' + (alerts.length > 0 ? 'c-red' : 'c-green')
+
+  // Sidebar badges
+  const pb = document.getElementById('nav-badge-procs')
+  pb.textContent = procs.length
+  pb.className   = 'nav-badge' + (procs.length > 0 ? '' : ' hidden')
+
+  const ab = document.getElementById('nav-badge-alerts')
+  ab.textContent = alerts.length
+  ab.className   = 'nav-badge' + (alerts.length > 0 ? '' : ' hidden')
+
+  // Simple hero
+  const shield   = document.getElementById('hero-shield')
+  const title    = document.getElementById('hero-title')
+  const sub      = document.getElementById('hero-sub')
+  const killBtnS = document.getElementById('terminate-all-btn-simple')
+
+  if (procs.length === 0) {
+    shield.textContent = '🛡'
+    shield.className   = 'hero-shield safe'
+    title.textContent  = 'All Clear'
+    sub.innerHTML      = '<span class="c-green">No AI processes detected.</span>'
+    if (killBtnS) { killBtnS.disabled = true; killBtnS.style.opacity = '0.35'; }
+  } else {
+    shield.textContent = '⚠️'
+    shield.className   = 'hero-shield'
+    title.textContent  = procs.length + ' AI Process' + (procs.length !== 1 ? 'es' : '') + ' Running'
+    const killableNames = procs.filter(p => p.will_kill).map(p => esc(p.tool_name))
+    const monitorNames  = procs.filter(p => !p.will_kill).map(p => esc(p.tool_name))
+    const parts = []
+    if (killableNames.length) {
+      const preview = killableNames.slice(0, 3).join(', ')
+      const extra   = killableNames.length > 3 ? ` +${killableNames.length - 3} more` : ''
+      parts.push(`<span class="c-red">${preview}${extra}</span>`)
+    }
+    if (monitorNames.length) {
+      const preview = monitorNames.slice(0, 2).join(', ')
+      const extra   = monitorNames.length > 2 ? ` +${monitorNames.length - 2} more` : ''
+      parts.push(`<span class="c-yellow">${preview}${extra}</span>`)
+    }
+    sub.innerHTML = parts.join('<br>')
+    if (killBtnS) { killBtnS.disabled = false; killBtnS.style.opacity = ''; }
+  }
+
+  // Simple alert banner — show most severe recent alert
+  const banner = document.getElementById('simple-alert-banner')
+  if (banner) {
+    const critical = alerts.filter(a => a.severity === 'CRITICAL')
+    const warn     = alerts.filter(a => a.severity === 'WARN')
+    const top      = critical.length ? critical[critical.length - 1]
+                   : warn.length     ? warn[warn.length - 1]
+                   : null
+    if (top) {
+      const icon = top.severity === 'CRITICAL' ? '🚨' : '⚠️'
+      const ts   = timeAgo(top.time)
+      banner.className = top.severity === 'CRITICAL' ? 'critical' : 'warn'
+      banner.style.display = 'flex'
+      banner.innerHTML = `
+        <span style="font-size:16px;line-height:1">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${top.severity} · ${ts}</div>
+          <div style="font-size:12px;opacity:0.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${top.message}</div>
+        </div>
+        <button onclick="switchMode('advanced');document.getElementById('sec-alerts').scrollIntoView({behavior:'smooth'})"
+          style="flex-shrink:0;background:none;border:none;color:inherit;font-size:11px;font-weight:600;cursor:pointer;opacity:0.75;padding:0">
+          View&nbsp;→
+        </button>`
+    } else {
+      banner.style.display = 'none'
+      banner.className = ''
+    }
+  }
+}
+
+// ── Render: processes ──────────────────────────────────────────────────────
+
+function renderProcesses(procs) {
+  if (getMode() === 'simple') {
+    renderSimpleProcs(procs)
+  } else {
+    renderAdvancedProcs(procs)
+  }
+}
+
+function renderSimpleProcs(procs) {
+  const el = document.getElementById('simple-procs')
+  if (!procs.length) { el.innerHTML = ''; return }
+
+  el.innerHTML = procs.map(p => {
+    const killable = p.will_kill
+    return `
+      <div class="simple-proc-card ${killable ? 'terminable' : 'monitor'}" id="spc-${p.pid}">
+        <div class="spc-icon">${killable ? '⛔' : '👁'}</div>
+        <div class="spc-info">
+          <div class="spc-name">${esc(p.tool_name)}</div>
+          <div class="spc-meta">${esc(p.name)} · PID ${p.pid}${fmtBytes(p.mem_bytes) !== '—' ? ' · ' + fmtBytes(p.mem_bytes) : ''}</div>
+        </div>
+        <div class="spc-right">
+          ${killable
+            ? `<span class="badge badge-terminate">⛔ TERMINATE</span>
+               <button class="terminate-row-btn" onclick="killRow(${p.pid}, this)">Terminate</button>`
+            : `<span class="badge badge-monitor">👁 Monitor</span>`
+          }
+        </div>
+      </div>`
+  }).join('')
+}
+
+function renderAdvancedProcs(procs) {
+  const body    = document.getElementById('process-body')
+  const countEl = document.getElementById('proc-count')
+
+  if (!procs.length) {
+    countEl.textContent = ''
+    body.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-text">No AI processes detected</div>
+      </div>`
+    return
+  }
+
+  countEl.textContent = procs.length + ' process' + (procs.length !== 1 ? 'es' : '')
+  body.innerHTML = `
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Process</th><th>Tool</th>
+          <th>PID</th><th>CPU</th><th>RAM</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${procs.map(p => {
+          const cpu    = (p.cpu_percent || 0).toFixed(1) + '%'
+          const ram    = fmtBytes(p.mem_bytes || 0)
+          const cpuCls = (p.cpu_percent || 0) > 50 ? 'c-red' : (p.cpu_percent || 0) > 10 ? 'c-yellow' : 'c-muted'
+          return `
+          <tr id="row-${p.pid}">
+            <td><span class="proc-name">${esc(p.name)}</span></td>
+            <td><span class="proc-tool">${esc(p.tool_name)}</span></td>
+            <td><span class="proc-pid">${p.pid}</span></td>
+            <td><span class="proc-metric ${cpuCls}">${cpu}</span></td>
+            <td><span class="proc-metric c-muted">${ram}</span></td>
+            <td>${p.will_kill
+              ? '<span class="badge badge-terminate">⛔ TERMINATE</span>'
+              : '<span class="badge badge-monitor">👁 MONITOR</span>'}</td>
+            <td>${p.will_kill
+              ? `<button class="terminate-row-btn" onclick="killRow(${p.pid}, this)">Terminate</button>`
+              : ''}</td>
+          </tr>`
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`
+}
+
+// ── Render: tool config ────────────────────────────────────────────────────
+
+function renderAllToolCategories(tools) {
+  const el = document.getElementById('tools-list')
+  if (!el) return
+  const filtered = activeToolFilter === 'all' ? tools : tools.filter(t => t.category === activeToolFilter)
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-text">No tools in this category</div></div>'
+    return
+  }
+  el.innerHTML = filtered.map(t => `
+    <div class="tool-row">
+      <div class="tool-info">
+        <div class="tool-name">${esc(t.name)}</div>
+        ${t.note ? `<div class="tool-note">${esc(t.note)}</div>` : ''}
+      </div>
+      ${t.protected
+        ? '<span class="protected-tag">🔒 Protected</span>'
+        : `<div class="toggle-wrap">
+             <label class="toggle">
+               <input type="checkbox" ${t.kill ? 'checked' : ''}
+                 data-name="${esc(t.name)}" onchange="toggleTool(this)">
+               <div class="toggle-track"></div>
+               <div class="toggle-thumb"></div>
+             </label>
+             <span class="toggle-label">${t.kill ? 'Terminate' : 'Off'}</span>
+           </div>`
+      }
+    </div>`).join('')
+}
+
+// ── Render: alerts ─────────────────────────────────────────────────────────
+
+function renderAlerts(alerts) {
+  const el = document.getElementById('alerts-body')
+  if (!alerts.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔔</div>
+        <div class="empty-text">No alerts recorded</div>
+      </div>`
+    return
+  }
+  el.innerHTML = [...alerts].reverse().map(a => {
+    const sev  = (a.severity || 'INFO').toLowerCase()
+    const fullTime = new Date(a.time).toLocaleString()
+    const relTime  = timeAgo(a.time)
+    const meta = [a.source, a.path || null, a.pid ? 'PID ' + a.pid : null]
+      .filter(Boolean).join(' · ')
+    return `
+      <div class="alert-row">
+        <span class="sev-badge sev-${sev}">${a.severity || 'INFO'}</span>
+        <div class="alert-content">
+          <div class="alert-message">${esc(a.message)}</div>
+          <div class="alert-meta">
+            <span title="${esc(fullTime)}" style="cursor:default">${relTime}</span>
+            ${meta ? ' · ' + esc(meta) : ''}
+          </div>
+        </div>
+      </div>`
+  }).join('')
+}
+
+// ── Confirmation modal ─────────────────────────────────────────────────────
+
+let confirmCallback = null
+
+function showConfirm(icon, title, body, callback) {
+  document.getElementById('confirm-icon').textContent  = icon
+  document.getElementById('confirm-title').textContent = title
+  document.getElementById('confirm-body').textContent  = body
+  document.getElementById('confirm-modal').style.display = 'flex'
+  confirmCallback = callback
+}
+
+function confirmOk() {
+  document.getElementById('confirm-modal').style.display = 'none'
+  if (confirmCallback) confirmCallback()
+  confirmCallback = null
+}
+
+function confirmCancel(e) {
+  if (e && e.target !== document.getElementById('confirm-modal')) return
+  document.getElementById('confirm-modal').style.display = 'none'
+  confirmCallback = null
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+
+function terminateAll() {
+  showConfirm('⛔', 'Terminate All AI Processes',
+    'This will terminate every AI process currently marked as "Terminate". Are you sure?',
+    async () => {
+      const btns = [
+        document.getElementById('terminate-all-btn'),
+        document.getElementById('terminate-all-btn-simple'),
+      ].filter(Boolean)
+      btns.forEach(b => { b.disabled = true; b.textContent = 'Terminating…' })
+      try {
+        const res  = await fetch(BASE + '/kill', { method: 'POST' })
+        const data = await res.json()
+        const msg = data.count > 0
+          ? `✅  Terminated ${data.count} process${data.count !== 1 ? 'es' : ''}`
+          : '✅  Nothing to terminate'
+        btns.forEach(b => { b.textContent = msg; b.classList.add('success') })
+      } catch {
+        btns.forEach(b => b.textContent = '⚠️  Error — is daemon running?')
+      }
+      setTimeout(() => {
+        btns.forEach(b => {
+          b.disabled = false
+          b.textContent = '⛔ Terminate All AI Processes'
+          b.classList.remove('success')
+        })
+      }, 3000)
+      await fetchAll()
+    }
+  )
+}
+
+
+function killRow(pid, btn) {
+  const proc     = processes.find(p => p.pid === pid)
+  const name     = proc ? proc.tool_name : `PID ${pid}`
+  const procName = proc ? proc.name : String(pid)
+  showConfirm('⛔', 'Terminate Process', `Terminate "${procName}" (${name}, PID ${pid})?`,
+    async () => {
+      btn.disabled = true; btn.textContent = '…'
+      const row = document.getElementById('row-' + pid) || document.getElementById('spc-' + pid)
+      if (row) row.style.opacity = '0.4'
+      try { await fetch(BASE + '/kill/pid', { method: 'POST', body: JSON.stringify({ pid }) }) } catch {}
+      await fetchAll()
+    }
+  )
+}
+
+async function toggleTool(checkbox) {
+  const name  = checkbox.dataset.name
+  const kill  = checkbox.checked
+  const wrap  = checkbox.closest('.toggle-wrap')
+  const label = wrap ? wrap.querySelector('.toggle-label') : null
+  if (label) label.textContent = kill ? 'Terminate' : 'Off'
+  pendingToggles[name] = kill
+  try {
+    const res = await fetch(BASE + '/tools/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, kill }),
+    })
+    if (!res.ok) throw new Error()
+    delete pendingToggles[name]
+  } catch {
+    delete pendingToggles[name]
+    checkbox.checked = !kill
+    if (label) label.textContent = !kill ? 'Terminate' : 'Off'
+  }
+}
+
+async function clearAlerts() {
+  try { await fetch(BASE + '/alerts/clear', { method: 'POST' }); await fetchAll() } catch {}
+}
+
+// ── Util ───────────────────────────────────────────────────────────────────
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000)
+  if (diff < 5)    return 'just now'
+  if (diff < 60)   return diff + 's ago'
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago'
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago'
+  return Math.floor(diff / 86400) + 'd ago'
+}
+
+function fmtBytes(bytes) {
+  if (!bytes) return '—'
+  if (bytes < 1024 * 1024)           return (bytes / 1024).toFixed(0) + ' KB'
+  if (bytes < 1024 * 1024 * 1024)   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
+}
+
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+fetchAll()
+setInterval(fetchAll, 2000)
+setInterval(() => { if (cachedAlerts.length) renderAlerts(cachedAlerts) }, 30000)
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# Compiled binaries (root-level only — use /prefix to avoid matching cmd/ dirs)
+/aiguard
+/aiguard-bin
+/aiguard-tray
+
+# macOS
+.DS_Store
+cmd/.DS_Store
+**/.DS_Store
+
+# Build artifacts
+*.app
+dist/
+
+# Logs
+*.log
+/tmp/*.log
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go test cache
+/vendor/
+
+#claude
+CLAUDE.md
+.claude/
