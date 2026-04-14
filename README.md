@@ -1,6 +1,6 @@
 # AIGuard
 
-**AIGuard** is an AI process termination switch — a lightweight background daemon that monitors your machine for running AI tools (Claude Code, Cursor, Aider, Ollama, etc.) and lets you terminate them instantly from the command line or a macOS menu bar app.
+**AIGuard** is an AI process kill-switch — a lightweight background daemon that monitors your machine for running AI tools (Claude Code, Cursor, Aider, Ollama, etc.) and lets you terminate them instantly from the command line or a macOS menu bar app.
 
 ## Table of Contents
 
