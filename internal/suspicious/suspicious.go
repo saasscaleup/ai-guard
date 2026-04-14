@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	gnet "github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/net"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/saasscaleup/ai-guard/internal/alerts"
 	"github.com/saasscaleup/ai-guard/internal/config"
@@ -79,11 +79,6 @@ var knownSafeDomainSuffixes = []string{
 	"office365.com",
 	"outlook.com",
 	"windows.com",
-	"1drv.com",
-	"live.com",
-	"msftconnecttest.com",
-	"msecnd.net",
-	"skype.com",
 
 	// Developer tools
 	"github.com",
